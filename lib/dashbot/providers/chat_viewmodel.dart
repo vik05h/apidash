@@ -209,9 +209,161 @@ class ChatViewmodel extends StateNotifier<ChatState> {
       final response = await _repo.sendChat(request: enriched);
       if (response != null && response.isNotEmpty) {
         List<ChatAction>? actions;
+        List<McpToolCall>? toolCalls;
+
         try {
           debugPrint('[Chat] Parsing non-streaming response');
           final Map<String, dynamic> parsed = MessageJson.safeParse(response);
+
+          // Check for MCP tool calls (only if MCP server is running)
+          final mcpState = _ref.read(mcpServerStateProvider);
+          if (mcpState.isRunning &&
+              parsed.containsKey('tool_calls') &&
+              parsed['tool_calls'] is List) {
+            final mcpService = _ref.read(mcpToolServiceProvider);
+            toolCalls = mcpService.parseToolCalls(response);
+            if (toolCalls != null && toolCalls.isNotEmpty) {
+              debugPrint(
+                  '[Chat] Detected ${toolCalls.length} MCP tool call(s)');
+
+              // Add assistant message with explanation
+              final explanation = parsed['explanation'] as String?;
+              if (explanation != null && explanation.isNotEmpty) {
+                _addMessage(
+                  requestId,
+                  ChatMessage(
+                    id: getNewUuid(),
+                    content: explanation,
+                    role: MessageRole.system,
+                    timestamp: DateTime.now(),
+                    messageType: type,
+                  ),
+                );
+              }
+
+              // Execute tool calls
+              for (final toolCall in toolCalls) {
+                debugPrint('[Chat] Executing MCP tool: ${toolCall.tool}');
+                final toolResult = await mcpService.executeToolCall(toolCall);
+
+                // Check if tool execution was successful
+                final isSuccess = toolResult.containsKey('content') &&
+                    !toolResult.containsKey('error');
+
+                String? resultMessage;
+                if (isSuccess) {
+                  // For successful request creation, show success and auto-execute
+                  if (toolCall.tool == 'create_request') {
+                    final content = toolResult['content'];
+                    if (content is List && content.isNotEmpty) {
+                      final textContent = content.firstWhere(
+                        (c) => c['type'] == 'text',
+                        orElse: () => null,
+                      );
+                      if (textContent != null) {
+                        final data = jsonDecode(textContent['text']);
+                        final requestId = data['id'] as String?;
+                        final requestName =
+                            data['name'] as String? ?? 'Unnamed Request';
+
+                        resultMessage = '✅ Created request: $requestName';
+
+                        // Auto-execute the created request
+                        if (requestId != null) {
+                          resultMessage += '\n\n🚀 Executing request...';
+                          _addMessage(
+                            requestId,
+                            ChatMessage(
+                              id: getNewUuid(),
+                              content: resultMessage,
+                              role: MessageRole.system,
+                              timestamp: DateTime.now(),
+                              messageType: type,
+                            ),
+                          );
+
+                          // Execute the request
+                          final executeResult =
+                              await mcpService.executeToolCall(
+                            McpToolCall(
+                              tool: 'execute_request',
+                              arguments: {'request_id': requestId},
+                            ),
+                          );
+
+                          // Show execution result
+                          if (executeResult.containsKey('content')) {
+                            final execContent = executeResult['content'];
+                            if (execContent is List && execContent.isNotEmpty) {
+                              final execText = execContent.firstWhere(
+                                (c) => c['type'] == 'text',
+                                orElse: () => null,
+                              );
+                              if (execText != null) {
+                                final execData = jsonDecode(execText['text']);
+                                final status = execData['status'];
+                                final duration = execData['duration'];
+                                resultMessage =
+                                    '✅ Request executed successfully!\n'
+                                    'Status: $status\n'
+                                    'Duration: ${duration}ms';
+                              }
+                            }
+                          } else if (executeResult.containsKey('error')) {
+                            resultMessage =
+                                '❌ Failed to execute request: ${executeResult['error']}';
+                          }
+
+                          // Add final execution result message
+                          _addMessage(
+                            requestId,
+                            ChatMessage(
+                              id: getNewUuid(),
+                              content: resultMessage,
+                              role: MessageRole.system,
+                              timestamp: DateTime.now(),
+                              messageType: type,
+                            ),
+                          );
+                          continue; // Skip the normal result message
+                        }
+                      }
+                    }
+                    // If we couldn't parse the result, show generic success
+                    resultMessage ??= '✅ Request created successfully';
+                  } else {
+                    resultMessage = '✅ ${toolCall.tool} completed successfully';
+                  }
+                } else {
+                  resultMessage =
+                      '❌ ${toolCall.tool} failed: ${toolResult['error']}';
+                }
+
+                // Show tool execution result (only if not already shown)
+                if (resultMessage != null) {
+                  _addMessage(
+                    requestId,
+                    ChatMessage(
+                      id: getNewUuid(),
+                      content: resultMessage,
+                      role: MessageRole.system,
+                      timestamp: DateTime.now(),
+                      messageType: type,
+                    ),
+                  );
+                }
+              }
+
+              // Tool calls handled, return early
+              state = state.copyWith(
+                isGenerating: false,
+                currentStreamingResponse: '',
+              );
+              return;
+            }
+          }
+
+          // Parse regular actions
           if (parsed.containsKey('actions') && parsed['actions'] is List) {
             actions = (parsed['actions'] as List)
                 .whereType<Map<String, dynamic>>()

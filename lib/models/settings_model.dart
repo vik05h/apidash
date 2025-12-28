@@ -20,6 +20,7 @@ class SettingsModel {
     this.isSSLDisabled = false,
     this.isDashBotEnabled = true,
     this.defaultAIModel,
+    this.isMcpServerEnabled = false,
   });
 
   final bool isDark;
@@ -36,6 +37,7 @@ class SettingsModel {
   final bool isSSLDisabled;
   final bool isDashBotEnabled;
   final Map<String, Object?>? defaultAIModel;
+  final bool isMcpServerEnabled;
 
   SettingsModel copyWith({
     bool? isDark,
@@ -52,6 +54,7 @@ class SettingsModel {
     bool? isSSLDisabled,
     bool? isDashBotEnabled,
     Map<String, Object?>? defaultAIModel,
+    bool? isMcpServerEnabled,
   }) {
     return SettingsModel(
       isDark: isDark ?? this.isDark,
@@ -70,6 +73,7 @@ class SettingsModel {
       isSSLDisabled: isSSLDisabled ?? this.isSSLDisabled,
       isDashBotEnabled: isDashBotEnabled ?? this.isDashBotEnabled,
       defaultAIModel: defaultAIModel ?? this.defaultAIModel,
+      isMcpServerEnabled: isMcpServerEnabled ?? this.isMcpServerEnabled,
     );
   }
 
@@ -91,6 +95,7 @@ class SettingsModel {
       isSSLDisabled: isSSLDisabled,
       isDashBotEnabled: isDashBotEnabled,
       defaultAIModel: defaultAIModel,
+      isMcpServerEnabled: isMcpServerEnabled,
     );
   }
 
@@ -149,6 +154,7 @@ class SettingsModel {
     final defaultAIModel = data["defaultAIModel"] == null
         ? null
         : Map<String, Object?>.from(data["defaultAIModel"]);
+    final isMcpServerEnabled = data["isMcpServerEnabled"] as bool?;
     const sm = SettingsModel();
 
     return sm.copyWith(
@@ -167,6 +173,7 @@ class SettingsModel {
       isSSLDisabled: isSSLDisabled,
       isDashBotEnabled: isDashBotEnabled,
       defaultAIModel: defaultAIModel,
+      isMcpServerEnabled: isMcpServerEnabled,
     );
   }
 
@@ -188,6 +195,7 @@ class SettingsModel {
       "isSSLDisabled": isSSLDisabled,
       "isDashBotEnabled": isDashBotEnabled,
       "defaultAIModel": defaultAIModel,
+      "isMcpServerEnabled": isMcpServerEnabled,
     };
   }
 

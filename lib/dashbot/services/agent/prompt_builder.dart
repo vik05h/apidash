@@ -1,9 +1,15 @@
 import 'package:apidash/models/models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants.dart';
 import '../../models/models.dart';
 import '../../prompts/prompts.dart' as dash;
+import '../mcp_tool_service.dart';
 
 class PromptBuilder {
+  final Ref? ref;
+
+  PromptBuilder({this.ref});
+
   String buildSystemPrompt(
     RequestModel? req,
     ChatMessageType type, {
@@ -17,10 +23,23 @@ class PromptBuilder {
       type,
       overrideLanguage: overrideLanguage,
     );
+
+    // Add MCP tools to system prompt if MCP server is enabled
+    String? mcpTools;
+    if (ref != null) {
+      try {
+        final mcpService = ref!.read(mcpToolServiceProvider);
+        mcpTools = mcpService.getToolsSystemPrompt();
+      } catch (e) {
+        // MCP not available, continue without it
+      }
+    }
+
     return [
       if (task != null) task,
       if (contextBlock != null) contextBlock,
       if (historyBlock.isNotEmpty) historyBlock,
+      if (mcpTools != null && mcpTools.isNotEmpty) mcpTools,
     ].join('\n\n');
   }
 

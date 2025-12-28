@@ -4,7 +4,7 @@ import 'package:apidash/providers/providers.dart';
 import '../services/services.dart';
 
 final promptBuilderProvider = Provider<PromptBuilder>((ref) {
-  return PromptBuilder();
+  return PromptBuilder(ref: ref);
 });
 
 final urlEnvServiceProvider = Provider<UrlEnvService>((ref) {

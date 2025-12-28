@@ -64,6 +64,24 @@ class SettingsPage extends ConsumerWidget {
                       .update(isDashBotEnabled: value);
                 },
               ),
+              Consumer(
+                builder: (context, ref, child) {
+                  final mcpState = ref.watch(mcpServerStateProvider);
+                  return ADListTile(
+                    type: ListTileType.switchOnOff,
+                    title: 'MCP Server',
+                    subtitle: mcpState.isRunning
+                        ? 'Running at ${mcpState.serverUrl}\nAI assistants can connect via HTTP'
+                        : 'Enable Model Context Protocol server for AI assistants',
+                    value: settings.isMcpServerEnabled,
+                    onChanged: (bool? value) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .update(isMcpServerEnabled: value);
+                    },
+                  );
+                },
+              ),
               ADListTile(
                 type: ListTileType.switchOnOff,
                 title: 'Collection Pane Scrollbar Visiblity',
